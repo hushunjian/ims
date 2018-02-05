@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.me2me.ims.mapper.MImsPermissionMapper" >
+  <resultMap id="featureMap" type="com.me2me.ims.model.ImsFeature" >
+    <id column="id" property="id" jdbcType="BIGINT" />
+    <result column="pid" property="pid"/>
+    <result column="name" property="name" />
+    <result column="sn" property="sn" />
+    <result column="order_number" property="orderNumber"/>
+    <result column="creation_date" property="creationDate"/>
+  </resultMap>
+ 
+  <select id="getUserPermissons" resultMap="featureMap">
+   
+   select f.* from ims_feature f right join 
+	(
+		select feature_id from ims_user_feature  where user_id=#{userId}
+			union ALL
+		select feature_id from ims_role_feature rf,
+		(select role_id from ims_user_role where user_id=#{userId}) ur
+		where rf.role_id=ur.role_id
+	) b
+	on f.id= b.feature_id
+	order by f.order_number desc
+  </select>
+  
+</mapper>

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.me2me.content.mapper.TopicTagSearchMapper">
+  
+  
+	   <select id="getTopicIdsByTagAndSubTag" resultType="long">
+		   	select DISTINCT topic_id from topic_tag_detail dt,
+			(select id from topic_tag p where status=0 and (id=#{tagId} or pid=#{tagId})) tagId
+			 where dt.status=0 and dt.tag_id = tagId.id
+	   </select>
+	   
+     <select id="getKingdomsByTag" resultType="map">
+		select t.*,td.last_price_incr from topic t
+		left join topic_data td on  td.topic_id=t.id
+		where 
+			t.id in
+				<foreach open="(" separator="," close=")" collection="topicIds" item="bid">
+	        		#{bid}
+	      		</foreach>
+			
+			and t.id not in (
+				select data from user_dislike where uid=#{uid} and is_like=0 and type=1
+			)
+			<if test="blacklistUids!=null and blacklistUids.size() &gt; 0">
+	      		and t.uid not in
+	      		<foreach open="(" separator="," close=")" collection="topicIds" item="bid">
+	        		#{bid}
+	      		</foreach>
+    		</if>
+		  <choose>
+             <when test="order=='price'">
+                order by t.price DESC,t.id desc
+             </when>
+             <otherwise>
+                order by td.last_price_incr DESC,t.id desc
+              </otherwise>
+           </choose>
+		   limit ${(page-1)*pageSize},#{pageSize}
+     </select>
+
+	 <select id="getTagPriceAndKingdomCount" resultType="map">
+		select 
+			count(1) kingdomCount,
+			sum(ts.price) tagPrice,
+			(select count(DISTINCT uid) c from topic_fragment where topic_id in
+				<foreach open="(" separator="," close=")" collection="topicIds" item="bid">
+	        		#{bid}
+	      		</foreach>
+			)+FLOOR(sum(ct.read_count)/20) tagPersons
+			from
+			(select * from topic where id in
+				<foreach open="(" separator="," close=")" collection="topicIds" item="bid">
+	        		#{bid}
+	      		</foreach>
+			) ts,content ct
+			where ts.id=ct.forward_cid and ct.type=3
+	 </select>
+	
+	<select id="getSysTagCountInfo" resultType="map">
+		SELECT t.*,
+		( 
+			select  sum(price) from topic where id in(
+				select DISTINCT topic_id from topic_tag_detail dt,
+				(select id from topic_tag p where status=0 and (id=#{tagId} or pid=#{tagId})) tagId
+				 where dt.status=0 and dt.tag_id = tagId.id
+			)
+		) price
+		FROM topic_tag t where t.is_sys=1
+	</select>
+	<select id="getTopicIdsByTag" resultType="int">
+		select DISTINCT topic_id from topic_tag_detail dt,
+		(select id from topic_tag p where status=0 and (id=#{tagId} or pid=#{tagId})) tagId
+		 where dt.status=0 and dt.tag_id = tagId.id
+	</select>
+	<select id="getUserFavoTags" resultType="string">
+		select tag from user_tag_like  where uid=#{uid} and score > 20 order by score DESC limit #{count}
+	</select>
+	
+	
+	<select id="getUserLikeTagAndSubTag" resultType="com.me2me.content.model.TagInfo">
+		select t.id as tagId,t.tag as tagName from 
+		topic_tag t,
+		(select data from user_dislike where uid=#{uid} and is_like=#{isLike} and type=2) userlike 
+		where t.id=userlike.data or t.pid=userlike.data
+	</select>
+	<select id="getUserLikeTag" resultType="com.me2me.content.model.TagInfo">
+		select t.id as tagId,t.tag as tagName from 
+		topic_tag t,
+		(select data from user_dislike where uid=#{uid} and is_like=1 and type=2) userlike 
+		where t.id=userlike.data
+	</select>
+	
+</mapper>
